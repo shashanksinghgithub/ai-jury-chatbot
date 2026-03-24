@@ -1,6 +1,6 @@
 import requests
-
-API_KEY = "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"
+import os
+API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 url = "https://openrouter.ai/api/v1/chat/completions"
 
