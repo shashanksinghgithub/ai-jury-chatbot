@@ -74,33 +74,60 @@ def ask(question: str):
                 yield f"data: {json.dumps({'model': name, 'answer': result})}\n\n"
 
         # judge
-        judge_prompt = f"""
+
+        # 🔥 NEW PEER SCORING SYSTEM
+
+        scores = {
+            "ChatGPT": 0,
+            "Claude": 0,
+            "Llama": 0
+        }
+
+        def get_score(judge_model, question, answer, answer_by):
+
+            prompt = f"""
 Question: {question}
 
-ChatGPT:
-{answers['ChatGPT']}
+Answer by {answer_by}:
+{answer}
 
-Claude:
-{answers['Claude']}
+Rate this answer from 0 to 100 based on:
+- Accuracy
+- Clarity
+- Completeness
+- Relevance
 
-Llama:
-{answers['Llama']}
-
-Which answer is best?
-Reply ONLY with:
-ChatGPT
-Claude
-Llama
+Reply ONLY with a number between 0 and 100.
 """
 
-        best = ask_model("anthropic/claude-3-haiku", judge_prompt).strip()
+            result = ask_model(judge_model, prompt)
 
-        if best not in answers:
-            best = "ChatGPT"
+            try:
+                return int(result.strip().split()[0])
+            except:
+                return 50
+            
 
+        # 🔥 scoring
+        scores["ChatGPT"] += get_score("anthropic/claude-3-haiku", question, answers["ChatGPT"], "ChatGPT")
+        scores["ChatGPT"] += get_score("meta-llama/llama-3.1-8b-instruct", question, answers["ChatGPT"], "ChatGPT")
+
+        scores["Claude"] += get_score("openai/gpt-4o-mini", question, answers["Claude"], "Claude")
+        scores["Claude"] += get_score("meta-llama/llama-3.1-8b-instruct", question, answers["Claude"], "Claude")
+
+        scores["Llama"] += get_score("openai/gpt-4o-mini", question, answers["Llama"], "Llama")
+        scores["Llama"] += get_score("anthropic/claude-3-haiku", question, answers["Llama"], "Llama")
+
+        # 🏆 pick winner (ONLY ONCE)
+        best = max(scores, key=scores.get)
+
+        # 📊 send scores
+        yield f"data: {json.dumps({'scores': scores})}\n\n"
+
+        # 🏆 send winner
         yield f"data: {json.dumps({'best': best})}\n\n"
 
-        # ✅ 2. STORE ALL ANSWERS
+        # ✅ STORE ALL ANSWERS
         chat_history.append({
             "role": "assistant",
             "content": f"""
@@ -110,7 +137,7 @@ Llama: {answers['Llama']}
 """
         })
 
-        # ✅ 3. TRIM MEMORY
+        # ✅ TRIM MEMORY
         chat_history[:] = chat_history[-10:]
 
     return StreamingResponse(generate(), media_type="text/event-stream")
@@ -665,6 +692,39 @@ eventSource.onmessage = function(event){
 
         // ✅ typing always starts (important)
         typeText(document.getElementById(uniqueId), answer)
+    }
+
+
+
+        // 📊 SCORES ARRIVE
+    if(data.scores){
+
+        let scores = data.scores
+
+        Object.keys(scores).forEach(model => {
+
+            if(cards[model]){
+
+                let scoreDiv = document.createElement("div")
+                scoreDiv.style.marginTop = "8px"
+                scoreDiv.style.fontWeight = "bold"
+                scoreDiv.style.opacity = "0.9"
+
+                scoreDiv.innerHTML = `
+                    <div style="
+                        margin-top:8px;
+                        padding:6px;
+                        border-radius:6px;
+                        background:rgba(34,197,94,0.15);
+                        font-size:13px;
+                    ">
+                        📊 <strong>${scores[model]}</strong> / 200
+                    </div>
+                `
+
+                cards[model].appendChild(scoreDiv)
+            }
+        })
     }
 
     // 🏆 Winner arrives later
