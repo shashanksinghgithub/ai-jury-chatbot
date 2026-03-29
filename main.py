@@ -5,8 +5,11 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from fastapi.responses import StreamingResponse
 import json
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 
@@ -139,7 +142,18 @@ width:100%;
 height:70px;
 padding:10px;
 border-radius:8px;
-border:none;
+
+/* 🔥 FIX */
+border:1px solid #d1d5db;   /* light grey */
+outline:none;
+background:#ffffff;
+color:#000;
+}
+
+/* nice focus effect */
+textarea:focus{
+border-color:#3b82f6;
+box-shadow:0 0 0 2px rgba(59,130,246,0.2);
 }
 
 button{
@@ -336,13 +350,101 @@ body{
     align-items:center;
     flex-shrink:0; 
 }
+
+.theme-bar{
+    display:flex;
+    gap:4px;
+    align-items:center;
+    flex-shrink:0; 
+}
+
+/* 🔥 PREMIUM CREATOR TAG */
+#creatorTag{
+    position: fixed;
+    top: 10px;
+    right: 20px;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    z-index: 999;
+    transition: all 0.3s ease;
+}
+
+/* dark mode */
+.dark-mode #creatorTag{
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(6px);
+    color: white;
+}
+
+/* light mode */
+.light-mode #creatorTag{
+    background: rgba(255,255,255,0.9);
+    color: #000;
+    border: 1px solid #ddd;
+}
+
+#creatorTag a{
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+#creatorTag a:hover{
+    text-decoration: underline;
+}
+
+
+/* 🔥 ADD THIS */
+#creatorTag{
+    position: fixed;
+    top: 10px;
+    right: 20px;
+    font-size: 13px;
+    opacity: 0.8;
+    z-index: 999;
+}
+
+#creatorTag a{
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+#creatorTag a:hover{
+    text-decoration: underline;
+}
+
 </style>
 
 </head>
 
 <body>
 
-<h1>🤖 AI Jury Chat</h1>
+<div id="creatorTag">
+    Created by 
+    <a href="https://www.linkedin.com/in/shashanksingh-analytics" target="_blank">
+        Shashank Singh
+    </a>
+</div>
+
+<!-- BIG HEADER (default) -->
+<div id="mainHeader" style="text-align:center; margin-bottom:20px;">
+    <img src="/static/logo.png" style="height:80px;">
+    <h1 style="margin:5px 0;">AI Jury Chat</h1>
+</div>
+
+<!-- SMALL HEADER (hidden initially) -->
+<div id="miniHeader" style="
+    display:none;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+">
+    <img src="/static/logo.png" style="height:35px;">
+    <h2 style="margin:0;">AI Jury Chat</h2>
+</div>
+
 
 <div class="top-bar">
 
@@ -383,6 +485,11 @@ body{
 <div id="chat"></div>
 
 <script>
+
+let currentTheme = {
+    color1: "#0f172a",
+    color2: "#0f172a"
+}
 
 speechSynthesis.onvoiceschanged = () => {
     speechSynthesis.getVoices()
@@ -436,6 +543,15 @@ function createInputBox(){
 // ask function
 async function ask(id){
 
+// 🔥 SWITCH HEADER ON FIRST ASK
+let mainHeader = document.getElementById("mainHeader")
+let miniHeader = document.getElementById("miniHeader")
+
+if(mainHeader && miniHeader){
+    mainHeader.style.display = "none"
+    miniHeader.style.display = "flex"
+}
+
 // 🔥 REMOVE Ask button from current box after click
 let btn = document.querySelector(`#q_${id}`).parentNode.querySelector("button")
 if(btn){
@@ -453,6 +569,12 @@ let text = oldBox.value
 
 let p = document.createElement("div")
 p.className = "card"
+
+// ✅ APPLY THEME TO QUESTION BOX
+let isLight = currentTheme.color1 === "#ffffff"
+p.style.background = isLight ? "#e2e8f0" : "#1e293b"   // slightly lighter than answers
+p.style.color = isLight ? "#000" : "#fff"
+
 p.innerText = text
 
 oldBox.parentNode.replaceChild(p, oldBox)
@@ -479,6 +601,11 @@ let count = currentView === "best" ? 1 : 3
 for(let i=0; i<count; i++){
     let div = document.createElement("div")
     div.className = "card"
+    // ✅ APPLY CURRENT THEME TO NEW CARD
+    let isLight = currentTheme.color1 === "#ffffff"
+
+    div.style.background = isLight ? "#f1f5f9" : "#1e293b"
+    div.style.color = isLight ? "#000" : "#fff"
 
     let skeleton = document.createElement("div")
     skeleton.className = "skeleton"
@@ -508,6 +635,11 @@ eventSource.onmessage = function(event){
 
         let div = document.createElement("div")
         div.className = "card"
+
+        // ✅ ADD THIS HERE (THIS WAS MISSING)
+        let isLight = currentTheme.color1 === "#ffffff"
+        div.style.background = isLight ? "#f1f5f9" : "#1e293b"
+        div.style.color = isLight ? "#000" : "#fff"
 
         let uniqueId = model + "_" + id
 
@@ -631,35 +763,38 @@ function toggleView(el){
 
 function setTheme(color1, color2, el){
 
-    let isLight = color1 === "#ffffff"
+    currentTheme = {color1, color2}   // ✅ STORE THEME
 
-    // background
+    let isLight = color1 === "#ffffff"
+    if(isLight){
+        document.body.classList.add("light-mode")
+        document.body.classList.remove("dark-mode")
+    } else {    
+        document.body.classList.add("dark-mode")
+        document.body.classList.remove("light-mode")
+    }
+
     document.body.style.background = isLight
         ? "#ffffff"
         : `linear-gradient(135deg, ${color1}, ${color2})`
 
-    // text color
     document.body.style.color = isLight ? "#000" : "#fff"
 
-    // cards
     document.querySelectorAll(".card").forEach(card => {
         card.style.background = isLight ? "#f1f5f9" : "#1e293b"
         card.style.color = isLight ? "#000" : "#fff"
     })
 
-    // buttons
     document.querySelectorAll("button").forEach(btn => {
         btn.style.background = isLight ? "#e2e8f0" : "#3b82f6"
         btn.style.color = isLight ? "#000" : "#fff"
     })
 
-    // active highlight
     document.querySelectorAll(".color-box").forEach(box => {
         box.classList.remove("active")
     })
     el.classList.add("active")
 
-    // save
     localStorage.setItem("theme", JSON.stringify({color1, color2}))
 }
 
@@ -669,7 +804,22 @@ window.onload = () => {
 
     if(saved){
         let {color1, color2} = JSON.parse(saved)
-        document.body.style.background = `linear-gradient(135deg, ${color1}, ${color2})`
+        currentTheme = {color1, color2}
+
+        let isLight = color1 === "#ffffff"
+
+        if(isLight){
+            document.body.classList.add("light-mode")
+            document.body.classList.remove("dark-mode")
+        } else {
+            document.body.classList.add("dark-mode")
+            document.body.classList.remove("light-mode")
+        }
+        document.body.style.background = isLight
+            ? "#ffffff"
+            : `linear-gradient(135deg, ${color1}, ${color2})`
+
+        document.body.style.color = isLight ? "#000" : "#fff"
     }
 }
 
