@@ -13,6 +13,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 
+print("API KEY:", API_KEY)
+
 if not API_KEY:
     raise ValueError("API key not found")
 
@@ -34,12 +36,12 @@ def ask_model(model, question):
         "Content-Type": "application/json"
     }
 
-    # ✅ FIX: safe copy of memory
-    messages = list(chat_history) + [{"role": "user", "content": question}]
+    messages = [{"role": "user", "content": question}]
 
     data = {
         "model": model,
-        "messages": messages
+        "messages": messages,
+        "max_tokens": 200   # 🔥 ADD THIS LINE
     }
 
     response = requests.post(url, headers=headers, json=data)
@@ -48,9 +50,18 @@ def ask_model(model, question):
         result = response.json()
         return result["choices"][0]["message"]["content"]
     except:
-        return f"Error: {response.text}"
+        return "⚠️ Low credits or API error"
 
 ##############################################################################################
+
+# ✅ ADD HERE
+@app.get("/reset")
+def reset():
+    global chat_history
+    chat_history = []
+    return {"status": "cleared"}
+
+
 @app.get("/ask")
 def ask(question: str):
 
@@ -800,6 +811,10 @@ function setTheme(color1, color2, el){
 
 /* optional restore */
 window.onload = () => {
+
+    // 🔥 CLEAR BACKEND MEMORY ON REFRESH
+    fetch("/reset")
+
     let saved = localStorage.getItem("theme")
 
     if(saved){
@@ -815,6 +830,7 @@ window.onload = () => {
             document.body.classList.add("dark-mode")
             document.body.classList.remove("light-mode")
         }
+
         document.body.style.background = isLight
             ? "#ffffff"
             : `linear-gradient(135deg, ${color1}, ${color2})`
@@ -822,7 +838,6 @@ window.onload = () => {
         document.body.style.color = isLight ? "#000" : "#fff"
     }
 }
-
 
 // first input
 createInputBox()
